@@ -2,17 +2,17 @@
 #include <stddef.h>
 #include <stdint.h>
 
-/* Check if the compiler thinks you are targeting the wrong operating system. */
+/* Check if the compiler thinks you are targeting the wrong operating system */
 #if defined(__linux__)
 #error "You are not using a cross-compiler, you will most certainly run into trouble"
 #endif
 
-/* Only work for the 32-bit ix86 targets. */
+/* Only work for the 32-bit ix86 targets */
 #if !defined(__i386__)
 #error "This tutorial needs to be compiled with a ix86-elf compiler"
 #endif
 
-/* Hardware text mode color constants. */
+/* Hardware text mode color constants */
 enum vga_color {
 	VGA_COLOR_BLACK = 0,
 	VGA_COLOR_BLUE = 1,
@@ -31,6 +31,20 @@ enum vga_color {
 	VGA_COLOR_LIGHT_BROWN = 14,
 	VGA_COLOR_WHITE = 15,
 };
+
+/* Keyboard apping */
+char keyboard_map[128] = {
+    0, 27, '1','2','3','4','5','6','7','8','9','0','-','=', '\b',
+    '\t','q','w','e','r','t','y','u','i','o','p','[',']','\n',0,'a',
+    's','d','f','g','h','j','k','l',';','\'','`',0,'\\','z','x','c',
+    'v','b','n','m',',','.','/',0,'*',0,' ','\0'
+};
+
+static inline uint8_t inb(uint16_t port) {
+    uint8_t ret;
+    asm volatile ("inb %1, %0" : "=a"(ret) : "Nd"(port));
+    return ret;
+}
 
 static inline uint8_t vga_entry_color(enum vga_color fg, enum vga_color bg) 
 {
@@ -86,8 +100,7 @@ void terminal_putentryat(char c, uint8_t color, size_t x, size_t y)
 
 void terminal_putchar(char c) 
 {
-	terminal_putentryat(c, terminal_color, terminal_column, terminal_row);
-	if (c == '\n') {          
+    if (c == '\n') {          
         terminal_column = 0;   
         terminal_row++;   
         if (terminal_row == VGA_HEIGHT)
@@ -95,7 +108,16 @@ void terminal_putchar(char c)
         return;
     }
 
+	if (c == '\b') {
+        if (terminal_column > 0) {
+            terminal_column--;
+            terminal_putentryat(' ', terminal_color, terminal_column, terminal_row);
+        }
+        return;
+    }
+
     terminal_putentryat(c, terminal_color, terminal_column, terminal_row);
+
     if (++terminal_column == VGA_WIDTH) {  
         terminal_column = 0;
         if (++terminal_row == VGA_HEIGHT)
@@ -119,4 +141,15 @@ void kernel_main(void)
 	terminal_initialize();
 
 	terminal_writestring("Hello, Kernel !\n");
+
+	while (1) {
+		uint8_t scancode = inb(0x60);
+
+		if(scancode & 0x80) continue;
+
+		char c = keyboard_map[scancode];
+		if(c != 0) terminal_putchar(c);
+
+		while ((inb(0x60) & 0x80) == 0) {}
+	}
 }
