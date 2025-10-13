@@ -2,17 +2,13 @@
 #include <stddef.h>
 #include <stdint.h>
 
-/* Check if the compiler thinks you are targeting the wrong operating system */
 #if defined(__linux__)
-#error "You are not using a cross-compiler, you will most certainly run into trouble"
 #endif
 
 /* Only work for the 32-bit ix86 targets */
 #if !defined(__i386__)
-#error "This tutorial needs to be compiled with a ix86-elf compiler"
 #endif
 
-/* Hardware text mode color constants */
 enum vga_color {
 	VGA_COLOR_BLACK = 0,
 	VGA_COLOR_BLUE = 1,
@@ -98,30 +94,46 @@ void terminal_putentryat(char c, uint8_t color, size_t x, size_t y)
 	terminal_buffer[index] = vga_entry(c, color);
 }
 
+void terminal_scroll() 
+{
+    for (size_t y = 1; y < VGA_HEIGHT; y++) {
+        for (size_t x = 0; x < VGA_WIDTH; x++) {
+            terminal_buffer[(y - 1) * VGA_WIDTH + x] = terminal_buffer[y * VGA_WIDTH + x];
+        }
+    }
+
+    for (size_t x = 0; x < VGA_WIDTH; x++) {
+        terminal_buffer[(VGA_HEIGHT - 1) * VGA_WIDTH + x] = vga_entry(' ', terminal_color);
+    }
+
+    terminal_row = VGA_HEIGHT - 1;
+}
+
 void terminal_putchar(char c) 
 {
     if (c == '\n') {          
         terminal_column = 0;   
         terminal_row++;   
-        if (terminal_row == VGA_HEIGHT)
-            terminal_row = 0;
-        return;
-    }
-
-	if (c == '\b') {
+    } 
+    else if (c == '\b') {
         if (terminal_column > 0) {
             terminal_column--;
             terminal_putentryat(' ', terminal_color, terminal_column, terminal_row);
         }
         return;
+    } 
+    else {
+        terminal_putentryat(c, terminal_color, terminal_column, terminal_row);
+        terminal_column++;
     }
 
-    terminal_putentryat(c, terminal_color, terminal_column, terminal_row);
-
-    if (++terminal_column == VGA_WIDTH) {  
+    if (terminal_column >= VGA_WIDTH) {
         terminal_column = 0;
-        if (++terminal_row == VGA_HEIGHT)
-            terminal_row = 0;
+        terminal_row++;
+    }
+
+    if (terminal_row >= VGA_HEIGHT) {
+        terminal_scroll();
     }
 }
 
