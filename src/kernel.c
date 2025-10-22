@@ -36,17 +36,28 @@ char keyboard_map[128] = {
     'v','b','n','m',',','.','/',0,'*',0,' ','\0'
 };
 
+/**
+ * Read a byte from an I/O port
+ * @param port The I/O port number (e.g., 0x60 for keyboard data)
+ * @return The byte read from the port
+ */
 static inline uint8_t inb(uint16_t port) {
     uint8_t ret;
     asm volatile ("inb %1, %0" : "=a"(ret) : "Nd"(port));
     return ret;
 }
 
+/**
+ * Create a VGA color attribute byte from foreground and background colors
+ */
 static inline uint8_t vga_entry_color(enum vga_color fg, enum vga_color bg) 
 {
 	return fg | bg << 4;
 }
 
+/**
+ * Create a VGA text entry combining character and color
+ */
 static inline uint16_t vga_entry(unsigned char uc, uint8_t color) 
 {
 	return (uint16_t) uc | (uint16_t) color << 8;
@@ -67,8 +78,11 @@ size_t strlen(const char* str)
 size_t terminal_row;
 size_t terminal_column;
 uint8_t terminal_color;
-uint16_t* terminal_buffer = (uint16_t*)VGA_MEMORY;
+uint16_t* terminal_buffer = (uint16_t*)VGA_MEMORY; // Pointer to VGA memory
 
+/**
+ * Initialize the terminal by clearing the screen and resetting cursor
+ */
 void terminal_initialize(void) 
 {
 	terminal_row = 0;
@@ -88,34 +102,52 @@ void terminal_setcolor(uint8_t color)
 	terminal_color = color;
 }
 
+/**
+ * Put a character at  position (x,y)
+ * @param c The character to display
+ * @param color The color attribute to use
+ * @param x The column position (0-79)
+ * @param y The row position (0-24)
+ */
 void terminal_putentryat(char c, uint8_t color, size_t x, size_t y) 
 {
 	const size_t index = y * VGA_WIDTH + x;
 	terminal_buffer[index] = vga_entry(c, color);
 }
 
+/**
+ * Scroll the terminal content up by one line
+ * Moves all lines up and clears the bottom line
+ */
 void terminal_scroll() 
 {
+	// Move all lines up by one row
     for (size_t y = 1; y < VGA_HEIGHT; y++) {
         for (size_t x = 0; x < VGA_WIDTH; x++) {
             terminal_buffer[(y - 1) * VGA_WIDTH + x] = terminal_buffer[y * VGA_WIDTH + x];
         }
     }
 
+	// Clear the bottom line
     for (size_t x = 0; x < VGA_WIDTH; x++) {
         terminal_buffer[(VGA_HEIGHT - 1) * VGA_WIDTH + x] = vga_entry(' ', terminal_color);
     }
 
+	// Set cursor to last line
     terminal_row = VGA_HEIGHT - 1;
 }
 
+/**
+ * Put a character at the current cursor position
+ * @param c The character to display
+ */
 void terminal_putchar(char c) 
 {
-    if (c == '\n') {          
+    if (c == '\n') {        // New line   
         terminal_column = 0;   
         terminal_row++;   
     } 
-    else if (c == '\b') {
+    else if (c == '\b') { // Backspace
         if (terminal_column > 0) {
             terminal_column--;
             terminal_putentryat(' ', terminal_color, terminal_column, terminal_row);
@@ -127,11 +159,13 @@ void terminal_putchar(char c)
         terminal_column++;
     }
 
+	// New line if the end of the current one is reached
     if (terminal_column >= VGA_WIDTH) {
         terminal_column = 0;
         terminal_row++;
     }
 
+	// Scroll if the bottom is reached
     if (terminal_row >= VGA_HEIGHT) {
         terminal_scroll();
     }
@@ -150,7 +184,7 @@ void terminal_writestring(const char* data)
 
 void kernel_main(void) 
 {
-	terminal_initialize();
+	terminal_initialize(); // Initialize the VGA terminal
 
 	terminal_writestring("Hello, Kernel !\n");
 
@@ -159,9 +193,11 @@ void kernel_main(void)
 
 		if(scancode & 0x80) continue;
 
+		// Convert scancode to ASCII
 		char c = keyboard_map[scancode];
 		if(c != 0) terminal_putchar(c);
 
+		// wait for key release
 		while ((inb(0x60) & 0x80) == 0) {}
 	}
 }
