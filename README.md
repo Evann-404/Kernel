@@ -1,4 +1,4 @@
-# Simple x86 Kernel
+# Minimalist x86 Kernel
 
 A minimal 32-bit x86 operating system kernel with VGA text mode output and keyboard input support. 
 
@@ -22,16 +22,15 @@ A minimal 32-bit x86 operating system kernel with VGA text mode output and keybo
 
 ```bash
 # Ubuntu/Debian
-sudo apt-get install qemu-system-x86
+sudo apt-get install qemu-system-x86 make binutils build-essential gdb
 
 # Fedora
-sudo dnf install qemu-system-x86
+sudo dnf install qemu-system-x86 make binutils gdb
 
 # Arch Linux
-sudo pacman -S qemu-system-x86
+sudo pacman -S qemu base-devel
 yay -S i686-elf-gcc i686-elf-binutils
 ```
-
 ## Building and Running
 
 Build and run in one command:
